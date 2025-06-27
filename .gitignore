@@ -1,0 +1,38 @@
+# Compiled object files
+*.o
+*.txt
+
+# Compiled binary
+lurkuitae_terminal
+
+# Build folders
+/build/
+/bin/
+/obj/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+
+# IDE and editor files
+.vscode/
+*.code-workspace
+*.swp
+*.swo
+*.swn
+*~
+
+# CMake and Make generated files
+CMakeFiles/
+CMakeCache.txt
+Makefile
+cmake_install.cmake
+compile_commands.json
+
+# User custom config or memory
+memory/history.txt
