@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <thread>
 #include <chrono>
+#include <sstream>
+#include <iomanip>
 #include "core/ollama_interface.h"
 #include "core/memory.h"
 #include "core/system_handler.h"
@@ -16,12 +18,27 @@ void log_debug(const std::string& message) {
     }
 }
 
+std::string escape_for_prompt(const std::string& input) {
+    std::ostringstream escaped;
+    for (char c : input) {
+        switch (c) {
+            case '\\': escaped << "\\\\"; break;
+            case '"': escaped << "\\\""; break;
+            case '\n': escaped << "\\n"; break;
+            case '\r': escaped << "\\r"; break;
+            case '\t': escaped << "\\t"; break;
+            default: escaped << c;
+        }
+    }
+    return escaped.str();
+}
+
 std::string safe_query(const std::string& prompt, const std::string& label) {
     std::string response;
     int attempts = 0;
     while (response.empty() && attempts < 3) {
         response = OllamaInterface::query(prompt);
-        std::this_thread::sleep_for(std::chrono::milliseconds(1)); // petite pause sacrée
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
         attempts++;
         if (debug == true) log_debug("Tentative " + std::to_string(attempts) + " - " + label + " : " + response);
     }
@@ -55,15 +72,15 @@ int main(int argc, char* argv[]) {
 
         if (validity_response.find("oui") != std::string::npos) {
             std::string guess_command_prompt = "Traduis la phrase suivante en une commande shell Ubuntu exécutable, sans guillemets ni backticks, juste la commande brute. Phrase : " + input;
-
             if (debug == true) log_debug("Envoi du prompt de devinette : " + guess_command_prompt);
             std::string guessed_command = safe_query(guess_command_prompt, "commande devinée");
 
             guessed_command.erase(std::remove(guessed_command.begin(), guessed_command.end(), '\n'), guessed_command.end());
             std::string system_output = handle_system_command(guessed_command);
-            if (debug == true) log_debug("Résultat de la commande système :\n" + system_output);
+            std::cout << "Résultat de la commande système :\n" << system_output;
 
-            std::string beautify_prompt = "Voici le résultat brut d'une commande shell Ubuntu :\n" + system_output + "\naffiche le simplement a l'utilisateur, avec si tu veux des explications";
+            std::string escaped_output = escape_for_prompt(system_output);
+            std::string beautify_prompt = "Voici le résultat brut d'une commande shell Ubuntu (échappé pour clarté) :\n" + escaped_output + "\nPeux-tu simplement le reformuler de manière claire, concise et légèrement poétique si tu veux, sans exagérer ?";
             if (debug == true) log_debug("Envoi du prompt d'embellissement : " + beautify_prompt);
             std::string ai_response = safe_query(beautify_prompt, "embellissement");
 
