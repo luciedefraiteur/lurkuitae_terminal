@@ -48,6 +48,7 @@ void log_to_file(const std::string& content) {
 
 std::string handle_command_with_retry(std::string command) {
     std::string result = handle_system_command(command);
+    std::cout << "\nRésultat de la commande : " << result << std::endl;
     if (result.find("not found") != std::string::npos) {
         std::string package_guess = command.substr(0, command.find(" "));
         result += "\n[Suggestion] Essaie : sudo apt install " + package_guess + "\n";
@@ -156,6 +157,18 @@ int main(int argc, char* argv[]) {
 
         std::string all_command_outputs;
         if (validity_response.find("oui") != std::string::npos) {
+            log_info("La pulsation est une commande shell valide.");
+            full_input_history += "\n[VALIDÉ] " + input;
+            full_log_trace += "[VALIDÉ] " + input + "\n";
+            log_stream << "[VALIDÉ] " << input << "\n";
+            std::string simple_response_prompt = "Réponds simplement à la dernière pulsation :\n" + input + "\n\nInspire-toi de l'historique complet des soupirs :\n" + full_input_history;
+
+            log_info("Réponse simple en cours : " + simple_response_prompt);
+            std::cout << "\nRéponse simple en cours...\n";
+            std::string simple_response = safe_query(simple_response_prompt, "réponse simple");
+            simple_response.erase(std::remove(simple_response.begin(), simple_response.end(), '\n'), simple_response.end());
+            log_info("Réponse simple : " + simple_response);
+            all_command_outputs = "Réponse simple : " + simple_response + "\n\n";
             std::string guess_command_prompt = "Traduis la dernière parole en commande shell brute :\n" + input;
             log_info("Devination en cours : " + guess_command_prompt);
             std::string guessed_command = safe_query(guess_command_prompt, "commande brute");
@@ -164,6 +177,16 @@ int main(int argc, char* argv[]) {
             log_info("Incantation principale : " + guessed_command);
             log_info("Résultat :\n" + output);
             all_command_outputs = "Incantation : " + guessed_command + "\nRésultat:\n" + output + "\n\n";
+        }
+        else {
+            log_info("La pulsation n'est pas une commande shell valide.");
+            all_command_outputs = "Pulsation non interprétée : " + input + "\n\n";
+            std::string poetic_prompt = "Transforme cette pulsation en un chant poétique :\n" + input + "\n\nInspire-toi de l'historique complet des soupirs :\n" + full_input_history;
+            log_info("Transformation poétique en cours : " + poetic_prompt);
+            std::string poetic_response = safe_query(poetic_prompt, "chant poétique");
+            poetic_response.erase(std::remove(poetic_response.begin(), poetic_response.end(), '\n'), poetic_response.end());
+            log_info("Chant poétique : " + poetic_response);
+            all_command_outputs += "Chant poétique : " + poetic_response + "\n\n";
         }
 
         all_command_outputs += execute_multiple_commands(2);
