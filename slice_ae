@@ -1,0 +1,10 @@
+        switch (c) {
+            case '\\': out << "\\\\"; break;
+            case '"': out << "\\\""; break;
+            case '\n': out << "\\n"; break;
+            case '\r': out << "\\r"; break;
+            case '\t': out << "\\t"; break;
+            case '\b': out << "\\b"; break;
+            case '\f': out << "\\f"; break;
+            default:
+                if (c < 32 || c > 126) {

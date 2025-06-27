@@ -1,0 +1,10 @@
+            log_stream << "Commande exécutée : " << guessed_command << "\nSortie : " << system_output << "\nRéponse : " << ai_response << "\n";
+            Memory::append(log_stream.str());
+        } else {
+            if (debug == true) log_debug("L’IA ne pense pas que ce soit une commande valide. Passage en réponse classique.");
+            std::string context = Memory::get_context();
+            std::string prompt = "Répond simplement à cette question, dans le contexte suivant :\n" + context + "\nNouvelle entrée : " + input;
+            if (debug == true) log_debug("Envoi du prompt classique : " + prompt);
+
+            std::string ai_response = safe_query(prompt, "réponse classique");
+            std::cout << "\nRéponse :\n" << ai_response << std::endl;

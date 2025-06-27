@@ -1,0 +1,10 @@
+#include "core/ollama_interface.h"
+#include "core/memory.h"
+#include "core/system_handler.h"
+
+bool debug = false;
+bool log_initialized = false;
+
+void log_to_file(const std::string& content) {
+    std::ios_base::openmode mode = std::ios::app;
+    if (!log_initialized) {

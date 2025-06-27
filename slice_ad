@@ -1,0 +1,10 @@
+void log_debug(const std::string& message) {
+    if (debug == true) {
+        std::cout << "[DEBUG] " << message << "\n";
+        log_to_file("[DEBUG] " + message);
+    }
+}
+
+std::string json_escape(const std::string& input) {
+    std::ostringstream out;
+    for (unsigned char c : input) {

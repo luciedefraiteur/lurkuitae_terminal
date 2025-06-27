@@ -1,0 +1,10 @@
+        std::string validity_prompt = "Est-ce que cette phrase signifie que l’utilisateur veut exécuter une commande shell Ubuntu ? Par exemple : ‘affiche le contenu d’un fichier’, ‘donne-moi la liste des dossiers’, ‘montre-moi le résultat de’. Réponds uniquement par ‘oui’ ou ‘non’ : " + input;
+        if (debug == true) log_debug("Envoi du prompt de validation : " + validity_prompt);
+        std::string validity_response = safe_query(validity_prompt, "validité");
+
+        std::transform(validity_response.begin(), validity_response.end(), validity_response.begin(), ::tolower);
+
+        std::ostringstream log_stream;
+        log_stream << "[LOG] Entrée utilisateur : " << input << "\n";
+
+        if (validity_response.find("oui") != std::string::npos) {

@@ -1,0 +1,10 @@
+            std::string guess_command_prompt = "Traduis la phrase suivante en une commande shell Ubuntu exécutable, sans guillemets ni backticks, juste la commande brute. Phrase : " + input;
+            if (debug == true) log_debug("Envoi du prompt de devinette : " + guess_command_prompt);
+            std::string guessed_command = safe_query(guess_command_prompt, "commande devinée");
+
+            guessed_command.erase(std::remove(guessed_command.begin(), guessed_command.end(), '\n'), guessed_command.end());
+            std::string system_output = handle_system_command(guessed_command);
+            if (debug == true) log_debug("Résultat de la commande système :\n" + system_output);
+
+            std::string view_check_prompt = "Est-ce que cette commande shell risque d'afficher du code source ou du contenu technique lisible par un humain ? Réponds uniquement par 'oui' ou 'non'. Commande : " + guessed_command;
+            std::string is_code_output = safe_query(view_check_prompt, "nature sortie");

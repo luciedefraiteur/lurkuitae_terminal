@@ -1,0 +1,10 @@
+                    continue;
+                } else {
+                    out << c;
+                }
+        }
+    }
+    return out.str();
+}
+
+std::string safe_query(const std::string& prompt, const std::string& label) {

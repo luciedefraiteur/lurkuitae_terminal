@@ -1,0 +1,10 @@
+    std::string response;
+    int attempts = 0;
+    while (response.empty() && attempts < 3) {
+        response = OllamaInterface::query(prompt);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        attempts++;
+        if (debug == true) log_debug("Tentative " + std::to_string(attempts) + " - " + label + " : " + response);
+    }
+    if (response.empty()) response = "[Erreur : réponse vide]";
+    return response;

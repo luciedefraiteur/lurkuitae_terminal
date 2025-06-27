@@ -1,0 +1,10 @@
+    std::cout << "∴ LURKUITAE ∴ Terminal Codex Vivant ∴ (LLM Local + Mémoire + Shell + Interprétation";
+    if (debug == true) std::cout << " + DEBUG";
+    std::cout << ")\n";
+
+    std::string input;
+    while (true) {
+        std::cout << "\nPose ta question ou commande (ou tape 'exit'): ";
+        std::getline(std::cin, input);
+        if (input == "exit") break;
+

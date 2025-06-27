@@ -3,5 +3,6 @@
 #include <string>
 namespace OllamaInterface {
     std::string query(const std::string& prompt);
+    std::string extract_between_markers(const std::string& input);
 }
 #endif

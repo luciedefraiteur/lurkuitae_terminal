@@ -1,0 +1,9 @@
+            log_stream << "Réponse : " << ai_response << "\n";
+            Memory::append(log_stream.str());
+        }
+
+        log_to_file(log_stream.str());
+    }
+
+    return 0;
+}

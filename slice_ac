@@ -1,0 +1,10 @@
+        mode = std::ios::trunc;
+        log_initialized = true;
+    }
+    std::ofstream logfile("lurkuitae_log.txt", mode);
+    if (logfile.is_open()) {
+        logfile << content << "\n";
+        logfile.flush();
+    }
+}
+

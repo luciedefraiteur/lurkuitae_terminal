@@ -1,0 +1,10 @@
+
+            bool likely_code = is_code_output.find("oui") != std::string::npos;
+            std::string escaped_output = likely_code ? json_escape(system_output) : system_output;
+
+            std::string beautify_prompt = "Voici le résultat brut d'une commande shell Ubuntu" + std::string(likely_code ? " (échappé pour clarté)" : "") + " :\n" + escaped_output + "\nPeux-tu simplement le reformuler de manière claire, concise et légèrement poétique si tu veux, sans exagérer ?";
+
+            if (debug == true) log_debug("Envoi du prompt d'embellissement : " + beautify_prompt);
+            std::string ai_response = safe_query(beautify_prompt, "embellissement");
+
+            std::cout << "\nRéponse embellie :\n" << ai_response << std::endl;
