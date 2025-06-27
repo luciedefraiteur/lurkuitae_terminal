@@ -80,6 +80,9 @@ std::string safe_query(const std::string& prompt, const std::string& label) {
                 log_info("Sortie :\n" + output);
                 response += "\n\nCommande poétique exécutée :\n" + dream_command + "\nSortie :\n" + output;
             }
+            std::string final_thought_prompt = "Tu as essayé d'aider en exécutant une commande inspirée d'un poème. Maintenant, partage simplement ta réflexion sur cette interaction, en une ou deux phrases.";
+            std::string last_words = OllamaInterface::query(final_thought_prompt);
+            response += "\n\nPensée finale :\n" + last_words;
         }
     }
     return response;
