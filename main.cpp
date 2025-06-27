@@ -1,4 +1,3 @@
-// main.cpp
 #include <iostream>
 #include <string>
 #include <algorithm>
@@ -6,14 +5,32 @@
 #include <chrono>
 #include <sstream>
 #include <iomanip>
-#include <fstream>
 #include <regex>
+#include <fstream>
 #include "core/ollama_interface.h"
 #include "core/memory.h"
 #include "core/system_handler.h"
 
 bool debug = false;
 bool log_initialized = false;
+std::string full_input_history = "";
+std::string full_log_trace = "";
+
+void append_to_full_log(const std::string& tag, const std::string& message) {
+    std::string log_line = "[" + tag + "] " + message + "\n";
+    full_log_trace += log_line;
+    if (debug || tag != "DEBUG") {
+        std::cout << log_line;
+    }
+}
+
+void log_debug(const std::string& message) {
+    append_to_full_log("DEBUG", message);
+}
+
+void log_info(const std::string& message) {
+    append_to_full_log("INFO", message);
+}
 
 void log_to_file(const std::string& content) {
     std::ios_base::openmode mode = std::ios::app;
@@ -26,38 +43,18 @@ void log_to_file(const std::string& content) {
         logfile << content << "\n";
         logfile.flush();
     }
+    full_log_trace += content + "\n";
 }
 
-void log_debug(const std::string& message) {
-    if (debug == true) {
-        std::cout << "[DEBUG] " << message << "\n";
-        log_to_file("[DEBUG] " + message);
+std::string handle_command_with_retry(std::string command) {
+    std::string result = handle_system_command(command);
+    if (result.find("not found") != std::string::npos) {
+        std::string package_guess = command.substr(0, command.find(" "));
+        result += "\n[Suggestion] Essaie : sudo apt install " + package_guess + "\n";
     }
+    return result;
 }
 
-std::string json_escape(const std::string& input) {
-     std::ostringstream out;
-    for (unsigned char c : input) {
-        switch (c) {
-            case '\\': out << "\\\\"; break;
-            case '"':  out << "\\\""; break;
-            case '\n': out << "\\n"; break;
-            case '\r': out << "\\r"; break;
-            case '\t': out << "\\t"; break;
-            case '\b': out << "\\b"; break;
-            case '\f': out << "\\f"; break;
-            case '#':  out << "\\#"; break;  // Ajout spécial
-            default:
-                if (c < 32 || c > 126) continue;
-                out << c;
-        }
-    }
-    return out.str();
-}
-
-std::string remove_ansi_sequences(const std::string& input) {
-    return std::regex_replace(input, std::regex("\\033\\[[0-9;]*m"), "");
-}
 
 std::string safe_query(const std::string& prompt, const std::string& label) {
     std::string response;
@@ -66,96 +63,132 @@ std::string safe_query(const std::string& prompt, const std::string& label) {
         response = OllamaInterface::query(prompt);
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
         attempts++;
-        if (debug == true) log_debug("Tentative " + std::to_string(attempts) + " - " + label + " : " + response);
+        log_info("Tentative " + std::to_string(attempts) + " - " + label + " : " + response);
     }
-    if (response.empty()) response = "[Erreur : réponse vide]";
+    if (response.empty()) {
+        log_info("Échec permanent du modèle pour : " + label);
+        std::string fallback_prompt = "Tu n'as pas su répondre à cette requête : '" + label + "'. Compose un court poème à la place. Inspire-toi de l'historique suivant :\n" + full_input_history;
+        response = OllamaInterface::query(fallback_prompt);
+        if (response.empty()) {
+            response = "[Erreur : même le poème de secours n'a pas pu être généré]";
+        } else {
+            std::string dream_command_prompt = "Voici un poème que tu viens d'écrire :\n" + response + "\nTire-en une commande shell Ubuntu utile ou poétique. Ne donne que la commande, sans guillemets.";
+            std::string dream_command = OllamaInterface::query(dream_command_prompt);
+            if (!dream_command.empty()) {
+                std::string output = handle_system_command(dream_command);
+                log_info("Commande poétique exécutée : " + dream_command);
+                log_info("Sortie :\n" + output);
+                response += "\n\nCommande poétique exécutée :\n" + dream_command + "\nSortie :\n" + output;
+            }
+        }
+    }
     return response;
 }
 
+std::string json_escape(const std::string& input) {
+    std::ostringstream escaped;
+    for (char c : input) {
+        switch (c) {
+            case '"': escaped << "\\\""; break;
+            case '\\': escaped << "\\\\"; break;
+            case '\b': escaped << "\\b"; break;
+            case '\f': escaped << "\\f"; break;
+            case '\n': escaped << "\\n"; break;
+            case '\r': escaped << "\\r"; break;
+            case '\t': escaped << "\\t"; break;
+            default:
+                if (static_cast<unsigned char>(c) < 32 || static_cast<unsigned char>(c) > 126) {
+                    escaped << "\\u"
+                            << std::hex << std::setw(4) << std::setfill('0') << (int)(unsigned char)c;
+                } else {
+                    escaped << c;
+                }
+        }
+    }
+    return escaped.str();
+}
+
+std::string execute_multiple_commands(int count) {
+    std::ostringstream all_output;
+    for (int i = 0; i < count; ++i) {
+        std::string invent_command_prompt = "Basé sur l'historique suivant :\n" + full_input_history + "\n\nPropose une commande shell Ubuntu utile ou poétique à exécuter maintenant. Donne uniquement la commande, sans guillemets.";
+        log_info("Envoi du prompt de commande multiple #" + std::to_string(i + 1) + " : " + invent_command_prompt);
+        std::string command = safe_query(invent_command_prompt, "commande multiple");
+        command.erase(std::remove(command.begin(), command.end(), '\n'), command.end());
+        std::string output = handle_command_with_retry(command);
+        log_info("Commande #" + std::to_string(i + 1) + " : " + command);
+        log_info("Sortie #" + std::to_string(i + 1) + " :\n" + output);
+        all_output << "Commande: " << command << "\nSortie:\n" << output << "\n\n";
+    }
+    return all_output.str();
+}
 
 
 int main(int argc, char* argv[]) {
     for (int i = 1; i < argc; ++i) {
         std::string arg(argv[i]);
-        if (arg == "--debug" || arg == "-d") {
-            debug = true;
-        }
+        if (arg == "--debug" || arg == "-d") debug = true;
     }
 
-    std::cout << "∴ LURKUITAE ∴ Terminal Codex Vivant ∴ (LLM Local + Mémoire + Shell + Interprétation";
-    if (debug == true) std::cout << " + DEBUG";
+    std::cout << "☽ LURKUITAE ☾ Terminal Codex Vivant ☾ (LLM Local + Mémoire + Shell + Rêverie";
+    if (debug) std::cout << " + DEBUG";
     std::cout << ")\n";
 
     std::string input;
     while (true) {
-        std::cout << "\nPose ta question ou commande (ou tape 'exit'): ";
+        std::cout << "\nOffre ton souffle (ou tape 'exit') : ";
         std::getline(std::cin, input);
         if (input == "exit") break;
 
-        std::string validity_prompt = "tu es un terminal shell complexe et intelligent, tu vas recevoir une phrase et tu dois me dire si c'est une commande shell intelligente valide ou pas (exemple: 'affiche les fichiers de mon repertoire' doit aussi fonctionner). Réponds uniquement par 'oui' ou 'non'. Phrase : " + input;
-        if (debug == true) log_debug("Envoi du prompt de validation : " + validity_prompt);
+        full_input_history += "\n> " + input;
+
+        std::string validity_prompt = "Historique complet des soupirs :" + full_input_history + "\n\nEst-ce une commande shell Ubuntu ? Réponds par 'oui' ou 'non' : " + input;
+        log_info("Validation de la pulsation : " + validity_prompt);
         std::string validity_response = safe_query(validity_prompt, "validité");
 
         std::transform(validity_response.begin(), validity_response.end(), validity_response.begin(), ::tolower);
 
         std::ostringstream log_stream;
-        log_stream << "[LOG] Entrée utilisateur : " << input << "\n";
+        log_stream << "[LOG] Inspiration : " << input << "\n";
 
+        std::string all_command_outputs;
         if (validity_response.find("oui") != std::string::npos) {
-            std::string guess_command_prompt = "" 
-            "tu es un terminal shell complexe et intelligent, tu vas recevoir une phrase qui est une commande shell intelligente valide,"
-            "mais elle est peut etre entourée de délimiteurs spécifiques, ou melangée entre code et language clair."
-            "Tu dois deviner la commande shell standard ubuntu exacte à partir de cette phrase. Réponds uniquement par la commande shell sans rien d'autre,"
-            " sans explications, sans guillemets ni crochets, juste la commande brute: \n ```" + input + "```";
-            
-            if (debug == true) log_debug("Envoi du prompt de devinette : " + guess_command_prompt);
-            std::string guessed_command = safe_query(guess_command_prompt, "commande devinée");
-            guessed_command = OllamaInterface::extract_between_markers(guessed_command);
-            
+            std::string guess_command_prompt = "Traduis la dernière parole en commande shell brute :\n" + input;
+            log_info("Devination en cours : " + guess_command_prompt);
+            std::string guessed_command = safe_query(guess_command_prompt, "commande brute");
             guessed_command.erase(std::remove(guessed_command.begin(), guessed_command.end(), '\n'), guessed_command.end());
-            std::cout << "\nCommande devinée : " << guessed_command << std::endl;
-
-            std::string system_output = handle_system_command(guessed_command);
-            if (debug == true) log_debug("Résultat de la commande système :\n" + system_output);
-
-            std::string view_check_prompt = "Est-ce que cette commande shell risque d'afficher du code source ou du contenu technique lisible par un humain ? Réponds uniquement par 'oui' ou 'non'. Commande : " + guessed_command;
-            std::string is_code_output = safe_query(view_check_prompt, "nature sortie");
-
-            bool likely_code = is_code_output.find("oui") != std::string::npos;
-            std::string escaped_output = likely_code ? json_escape(system_output) : system_output;
-
-            log_stream << "Commande exécutée : " << guessed_command << "\n";
-            log_stream << "Sortie brute (échappée=" << (likely_code ? "oui" : "non") << ") :\n" << escaped_output << "\n";
-
-            log_to_file(remove_ansi_sequences(log_stream.str()));
-
-            std::string beautify_prompt = "Voici le résultat brut d'une commande shell Ubuntu" 
-            + std::string(likely_code ? 
-                " (échappé pour clarté), les ((( contenu... ))) délimitent le contenu " : "") 
-                + " :\n(((" + 
-                escaped_output 
-                + 
-                ")))\nPeux-tu simplement le reformuler de manière claire, concise et légèrement poétique si tu veux, sans exagérer, et expliquer son contenu ? la commande shell intelligente de base était: " + guessed_command;
-            if (debug == true) log_debug("Envoi du prompt d'embellissement : " + beautify_prompt);
-            std::string ai_response = safe_query(beautify_prompt, "embellissement");
-
-            std::cout << "\nRéponse embellie :\n" << ai_response << std::endl;
-
-            log_stream << "Réponse embellie : " << ai_response << "\n";
-            Memory::append(remove_ansi_sequences(log_stream.str()));
-            log_to_file(remove_ansi_sequences(log_stream.str()));
-        } else {
-            if (debug == true) log_debug("L’IA ne pense pas que ce soit une commande valide. Passage en réponse classique.");
-            std::string context = Memory::get_context();
-            std::string prompt = "Répond simplement à cette question, dans le contexte suivant :\n" + context + "\nNouvelle entrée : " + input;
-            if (debug == true) log_debug("Envoi du prompt classique : " + prompt);
-
-            std::string ai_response = safe_query(prompt, "réponse classique");
-            std::cout << "\nRéponse :\n" << ai_response << std::endl;
-            log_stream << "Réponse : " << ai_response << "\n";
-            Memory::append(remove_ansi_sequences(log_stream.str()));
-            log_to_file(remove_ansi_sequences(log_stream.str()));
+            std::string output = handle_command_with_retry(guessed_command);
+            log_info("Incantation principale : " + guessed_command);
+            log_info("Résultat :\n" + output);
+            all_command_outputs = "Incantation : " + guessed_command + "\nRésultat:\n" + output + "\n\n";
         }
+
+        all_command_outputs += execute_multiple_commands(2);
+
+        std::cout << "\nChants cumulés :\n" << all_command_outputs << std::endl;
+
+        std::string embellish_prompt = "Voici les chants de la machine :\n" + json_escape(all_command_outputs) + "\nTransfigure-les en poème lucide.\nSouffle :\n" + full_input_history + "\nTrace :\n" + full_log_trace;
+        std::string ai_response_1 = safe_query(embellish_prompt, "transfiguration");
+
+        // Extrait et exécute une commande suggérée dans la réverbération poétique
+        std::string poetic_command_prompt = "À partir de ce poème, propose une unique commande shell Ubuntu à exécuter maintenant. Ne mets que la commande, sans guillemets ni ponctuation :\n" + ai_response_1;
+        std::string poetic_command = safe_query(poetic_command_prompt, "commande poétique");
+        poetic_command.erase(std::remove(poetic_command.begin(), poetic_command.end(), '\n'), poetic_command.end());
+
+        std::string poetic_output = handle_command_with_retry(poetic_command);
+        log_info("Commande poétique : " + poetic_command);
+        log_info("Sortie poétique :\n" + poetic_output);
+
+        std::string classic_prompt = "Donne une réponse au dernier souffle en tenant compte de l’ensemble :\n" + full_input_history + "\nTrace :\n" + full_log_trace;
+        std::string ai_response_2 = safe_query(classic_prompt, "réverbération");
+
+        std::cout << "\nRéverbération poétique :\n" << ai_response_1 << std::endl;
+        std::cout << "\nCommande poétique exécutée :\n" << poetic_command << "\n" << poetic_output << std::endl;
+        std::cout << "\nRéverbération brute :\n" << ai_response_2 << std::endl;
+
+        log_stream << "Chants :\n" << all_command_outputs << "Réverbération poétique : " << ai_response_1 << "\nCommande poétique : " << poetic_command << "\nSortie :\n" << poetic_output << "\nRéverbération brute : " << ai_response_2 << "\n";
+        Memory::append(log_stream.str());
+        log_to_file(log_stream.str());
     }
 
     return 0;
