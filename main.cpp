@@ -63,7 +63,7 @@ int main(int argc, char* argv[]) {
             std::string system_output = handle_system_command(guessed_command);
             if (debug == true) log_debug("Résultat de la commande système :\n" + system_output);
 
-            std::string beautify_prompt = "Voici le résultat brut d'une commande shell Ubuntu :\n" + system_output + "\nPeux-tu simplement le reformuler de manière claire, concise et légèrement poétique si tu veux, sans exagérer ?";
+            std::string beautify_prompt = "Voici le résultat brut d'une commande shell Ubuntu :\n" + system_output + "\naffiche le simplement a l'utilisateur, avec si tu veux des explications";
             if (debug == true) log_debug("Envoi du prompt d'embellissement : " + beautify_prompt);
             std::string ai_response = safe_query(beautify_prompt, "embellissement");
 
